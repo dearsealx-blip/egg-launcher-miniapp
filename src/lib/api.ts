@@ -1,4 +1,4 @@
-const API = process.env.NEXT_PUBLIC_API_URL || 'https://egg-api-production.up.railway.app';
+export const API = process.env.NEXT_PUBLIC_API_URL || 'https://egg-api-production.up.railway.app';
 
 export async function fetchTokens() {
   const r = await fetch(`${API}/api/tokens`);
@@ -44,5 +44,10 @@ export async function reserveLaunch(params: {
 
 export async function fetchPortfolio(walletAddress: string) {
   const r = await fetch(`${API}/api/portfolio/${walletAddress}`);
+  return r.json();
+}
+
+export async function fetchDashboard() {
+  const r = await fetch(`${API}/api/dashboard`);
   return r.json();
 }
