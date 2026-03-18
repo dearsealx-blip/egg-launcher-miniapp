@@ -38,9 +38,9 @@ function TokenDetail({ token, onBack }: { token: Token; onBack: () => void }) {
   const nanoSell    = BigInt(sellTokens) * 1_000_000_000n;
 
   // Deep links — work inside Telegram
-  const buyLink  = token.curve_address ? `ton://transfer/${token.curve_address}?amount=${nanotons}&text=buy` : '#';
+  const buyLink  = token.curve_address ? `https://app.tonkeeper.com/transfer/${ token.curve_address }?amount=${ nanotons }&text=buy` : '#';
   // Sell: encode payload as hex for ton:// link
-  const sellLink = token.curve_address ? `ton://transfer/${token.curve_address}?amount=50000000&text=sell` : '#';
+  const sellLink = token.curve_address ? `https://app.tonkeeper.com/transfer/${ token.curve_address }?amount=50000000&text=sell` : '#';
 
   return (
     <div className="p-4 space-y-4">
