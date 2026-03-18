@@ -26,7 +26,7 @@ export async function reserveLaunch(params: {
   dex_choice: string;
   creator_tg_id?: number;
   tg_username?: string;
-}): Promise<{ ok: boolean; ticker: string; payment_address: string; comment: string }> {
+}): Promise<{ ok: boolean; ticker: string; payment_address: string; comment: string; error?: string }> {
   // Get Telegram user from WebApp
   let tg_id = 0;
   let tg_username = '';
