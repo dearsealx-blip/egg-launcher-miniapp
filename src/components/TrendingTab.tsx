@@ -24,6 +24,15 @@ function TokenImage({ url, ticker }: { url?: string; ticker: string }) {
   return <img src={src} className="w-12 h-12 rounded-full object-cover flex-shrink-0" alt={ticker} onError={() => setErr(true)} />;
 }
 
+function openWalletLink(url: string) {
+  const tg = (window as any).Telegram?.WebApp;
+  if (tg?.openLink) {
+    tg.openLink(url);
+  } else {
+    window.open(url, '_blank');
+  }
+}
+
 function TokenDetail({ token, onBack }: { token: Token; onBack: () => void }) {
   const [tab, setTab]         = useState<'buy'|'sell'>('buy');
   const [amount, setAmount]   = useState(0.5);
@@ -102,12 +111,12 @@ function TokenDetail({ token, onBack }: { token: Token; onBack: () => void }) {
             </div>
             <input type="number" min="0.1" step="0.1" placeholder="Custom TON" value={custom} onChange={e => setCustom(e.target.value)}
               className="w-full bg-[#111] border border-[#2A2A2A] rounded-xl px-3 py-2 text-white text-sm placeholder-[#555] focus:border-[#FFD700] outline-none" />
-            <a href={buyLink} className="block w-full text-center bg-[#FFD700] text-black font-bold py-3 rounded-xl text-base">
+            <button onClick={() => openWalletLink(buyLink)} className="block w-full text-center bg-[#FFD700] text-black font-bold py-3 rounded-xl text-base w-full">
               Buy {buyAmount} TON &mdash; Tonkeeper
-            </a>
-            <a href={`https://my.tt/transfer/${token.curve_address}?amount=${nanotons}&text=buy`} className="block w-full text-center bg-[#1A1A1A] text-[#FFD700] border border-[#FFD700]/40 font-bold py-3 rounded-xl text-base">
+            </button>
+            <button onClick={() => openWalletLink(`https://my.tt/transfer/${token.curve_address}?amount=${nanotons}&text=buy`)} className="block w-full text-center bg-[#1A1A1A] text-[#FFD700] border border-[#FFD700]/40 font-bold py-3 rounded-xl text-base w-full">
               Buy {buyAmount} TON &mdash; MyTonWallet
-            </a>
+            </button>
           </div>
         ) : (
           <div className="space-y-2">
@@ -122,12 +131,12 @@ function TokenDetail({ token, onBack }: { token: Token; onBack: () => void }) {
             </div>
             <input type="number" placeholder="Custom amount" value={sellCustom} onChange={e => setSellCustom(e.target.value)}
               className="w-full bg-[#111] border border-[#2A2A2A] rounded-xl px-3 py-2 text-white text-sm placeholder-[#555] focus:border-red-500 outline-none" />
-            <a href={sellLink} className="block w-full text-center bg-red-500 text-white font-bold py-3 rounded-xl text-base">
+            <button onClick={() => openWalletLink(sellLink)} className="block w-full text-center bg-red-500 text-white font-bold py-3 rounded-xl text-base w-full">
               Sell via Tonkeeper
-            </a>
-            <a href={`https://my.tt/transfer/${token.curve_address}?amount=50000000&text=sell`} className="block w-full text-center bg-[#1A1A1A] text-red-400 border border-red-500/40 font-bold py-3 rounded-xl text-base">
+            </button>
+            <button onClick={() => openWalletLink(`https://my.tt/transfer/${token.curve_address}?amount=50000000&text=sell`)} className="block w-full text-center bg-[#1A1A1A] text-red-400 border border-red-500/40 font-bold py-3 rounded-xl text-base w-full">
               Sell via MyTonWallet
-            </a>
+            </button>
             <p className="text-[#555] text-xs text-center">Opens Tonkeeper to confirm sell</p>
           </div>
         )}
