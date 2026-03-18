@@ -79,23 +79,25 @@ function TokenDetail({ token, onBack }: { token: Token; onBack: () => void }) {
             />
           </div>
         </div>
-        <div className="space-y-2 text-xs text-[#555] break-all">
-          {token.curve_address && (
-            <div><span className="text-[#888]">Curve: </span>{token.curve_address}</div>
-          )}
-          {token.jetton_address && (
-            <div><span className="text-[#888]">Jetton: </span>{token.jetton_address}</div>
-          )}
-        </div>
         {token.curve_address && (
-          <a
-            href={tonscan}
-            target="_blank"
-            rel="noreferrer"
-            className="block w-full text-center bg-[#FFD700] text-black font-bold py-3 rounded-xl text-sm"
-          >
-            View on TONScan 🔍
-          </a>
+          <div className="space-y-2">
+            <a
+              href={`https://app.tonkeeper.com/transfer/${token.curve_address}?amount=500000000&text=buy`}
+              target="_blank"
+              rel="noreferrer"
+              className="block w-full text-center bg-[#FFD700] text-black font-bold py-3 rounded-xl text-sm"
+            >
+              Buy ${ token.ticker } 🥚
+            </a>
+            <a
+              href={tonscan}
+              target="_blank"
+              rel="noreferrer"
+              className="block w-full text-center bg-[#1A1A1A] text-[#888] border border-[#2A2A2A] py-2.5 rounded-xl text-xs"
+            >
+              View on TONScan 🔍
+            </a>
+          </div>
         )}
       </div>
     </div>
