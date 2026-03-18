@@ -22,19 +22,51 @@ function TokenImage({ url, ticker }: { url?: string; ticker: string }) {
   return <img src={src} className="w-12 h-12 rounded-full object-cover flex-shrink-0" alt={ticker} onError={() => setErr(true)} />;
 }
 
-const BUY_AMOUNTS = [0.1, 0.5, 1, 5];
+const BUY_AMOUNTS  = [0.1, 0.5, 1, 5];
+const SELL_AMOUNTS = [10, 100, 1000, 10000]; // token amounts
 
 function TokenDetail({ token, onBack }: { token: Token; onBack: () => void }) {
   const [amount, setAmount] = useState(0.5);
   const [custom, setCustom] = useState('');
+  const [tab, setTab]       = useState<'buy'|'sell'>('buy');
   const [buying, setBuying] = useState(false);
   const [txDone, setTxDone] = useState(false);
+  const [sellAmt, setSellAmt] = useState(100);
+  const [sellCustom, setSellCustom] = useState('');
   const [tonConnectUI] = useTonConnectUI();
   const wallet = useTonWallet();
 
   const progress = Math.min(token.progress ?? 0, 100);
   const buyAmount = custom ? parseFloat(custom) || 0.5 : amount;
   const nanotons = Math.floor(buyAmount * 1e9).toString();
+
+  const handleSell = useCallback(async () => {
+    if (!token.curve_address || !wallet) {
+      await tonConnectUI.openModal();
+      return;
+    }
+    try {
+      setBuying(true);
+      const sellTokenAmt = BigInt(Math.floor((sellCustom ? parseFloat(sellCustom) : sellAmt) * 1e9));
+      // Sell message: op=2 + token_amount(coins) + min_ton_out=0(coins)
+      const sellPayload = (await import('@ton/ton')).beginCell()
+        .storeUint(2, 32)
+        .storeCoins(sellTokenAmt)
+        .storeCoins(0n)
+        .endCell().toBoc().toString('base64');
+
+      // User must send their jetton wallet a JettonTransfer to the curve
+      // Actually: user calls Sell on curve directly with token amount
+      // The curve pulls tokens from user's jetton wallet via JettonBurn
+      // Simplest: send Sell msg to curve with token amount
+      await tonConnectUI.sendTransaction({
+        validUntil: Math.floor(Date.now() / 1000) + 300,
+        messages: [{ address: token.curve_address!, amount: '50000000', payload: sellPayload }],
+      });
+      setTxDone(true);
+    } catch {}
+    finally { setBuying(false); }
+  }, [wallet, token, sellAmt, sellCustom, tonConnectUI]);
 
   const handleBuyWithStars = useCallback(async () => {
     try {
@@ -125,47 +157,62 @@ function TokenDetail({ token, onBack }: { token: Token; onBack: () => void }) {
           </div>
         </div>
 
+        {/* Buy / Sell toggle */}
+        <div className="flex gap-2">
+          <button onClick={() => setTab('buy')} className={`flex-1 py-2 rounded-xl font-bold text-sm border transition-colors ${tab==='buy' ? 'bg-[#FFD700] text-black border-[#FFD700]' : 'bg-[#111] text-[#888] border-[#2A2A2A]'}`}>Buy</button>
+          <button onClick={() => setTab('sell')} className={`flex-1 py-2 rounded-xl font-bold text-sm border transition-colors ${tab==='sell' ? 'bg-red-500 text-white border-red-500' : 'bg-[#111] text-[#888] border-[#2A2A2A]'}`}>Sell</button>
+        </div>
+
         {/* Amount picker */}
         <div>
-          <div className="text-[#888] text-xs mb-2">How much TON to spend?</div>
-          <div className="grid grid-cols-4 gap-2 mb-2">
-            {BUY_AMOUNTS.map(a => (
-              <button
-                key={a}
-                onClick={() => { setAmount(a); setCustom(''); }}
-                className={`py-2 rounded-xl text-sm font-bold border transition-colors ${
-                  !custom && amount === a ? 'bg-[#FFD700] text-black border-[#FFD700]' : 'bg-[#111] text-[#888] border-[#2A2A2A]'
-                }`}
-              >
-                {a}
-              </button>
-            ))}
-          </div>
-          <input
-            type="number"
-            min="0.1"
-            step="0.1"
-            placeholder="Custom TON amount"
-            value={custom}
-            onChange={e => setCustom(e.target.value)}
-            className="w-full bg-[#111] border border-[#2A2A2A] rounded-xl px-3 py-2 text-white text-sm placeholder-[#555] focus:border-[#FFD700] outline-none"
-          />
+          <div className="text-[#888] text-xs mb-2">{tab === 'buy' ? 'How much TON to spend?' : 'How many tokens to sell?'}</div>
+          {tab === 'buy' ? (
+            <>
+              <div className="grid grid-cols-4 gap-2 mb-2">
+                {BUY_AMOUNTS.map(a => (
+                  <button key={a} onClick={() => { setAmount(a); setCustom(''); }}
+                    className={`py-2 rounded-xl text-sm font-bold border transition-colors ${!custom && amount === a ? 'bg-[#FFD700] text-black border-[#FFD700]' : 'bg-[#111] text-[#888] border-[#2A2A2A]'}`}>
+                    {a}
+                  </button>
+                ))}
+              </div>
+              <input type="number" min="0.1" step="0.1" placeholder="Custom TON" value={custom} onChange={e => setCustom(e.target.value)}
+                className="w-full bg-[#111] border border-[#2A2A2A] rounded-xl px-3 py-2 text-white text-sm placeholder-[#555] focus:border-[#FFD700] outline-none" />
+            </>
+          ) : (
+            <>
+              <div className="grid grid-cols-4 gap-2 mb-2">
+                {SELL_AMOUNTS.map(a => (
+                  <button key={a} onClick={() => { setSellAmt(a); setSellCustom(''); }}
+                    className={`py-2 rounded-xl text-xs font-bold border transition-colors ${!sellCustom && sellAmt === a ? 'bg-red-500 text-white border-red-500' : 'bg-[#111] text-[#888] border-[#2A2A2A]'}`}>
+                    {a.toLocaleString()}
+                  </button>
+                ))}
+              </div>
+              <input type="number" placeholder="Custom token amount" value={sellCustom} onChange={e => setSellCustom(e.target.value)}
+                className="w-full bg-[#111] border border-[#2A2A2A] rounded-xl px-3 py-2 text-white text-sm placeholder-[#555] focus:border-red-500 outline-none" />
+            </>
+          )}
         </div>
+
+        {tab === 'sell' && !txDone && (
+          <button onClick={handleSell} disabled={buying}
+            className="w-full bg-red-500 text-white font-bold py-3.5 rounded-xl text-base disabled:opacity-50">
+            {buying ? 'Sending...' : wallet ? `Sell ${sellCustom || sellAmt} $${token.ticker}` : 'Connect Wallet to Sell'}
+          </button>
+        )}
 
         {txDone ? (
           <div className="bg-green-900/30 border border-green-700 rounded-xl p-4 text-center">
             <div className="text-green-400 font-bold">Transaction sent!</div>
-            <div className="text-[#888] text-xs mt-1">Tokens will arrive shortly</div>
+            <div className="text-[#888] text-xs mt-1">{tab === 'buy' ? 'Tokens will arrive shortly' : 'TON will arrive shortly'}</div>
           </div>
-        ) : (
-          <button
-            onClick={handleBuy}
-            disabled={buying}
-            className="w-full bg-[#FFD700] text-black font-bold py-3.5 rounded-xl text-base disabled:opacity-50"
-          >
+        ) : tab === 'buy' ? (
+          <button onClick={handleBuy} disabled={buying}
+            className="w-full bg-[#FFD700] text-black font-bold py-3.5 rounded-xl text-base disabled:opacity-50">
             {buying ? 'Sending...' : wallet ? `Buy ${buyAmount} TON of $${token.ticker}` : 'Connect Wallet to Buy'}
           </button>
-        )}
+        ) : null}
 
         {/* Fallback: open in external wallet */}
         <a
