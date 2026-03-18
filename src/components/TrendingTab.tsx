@@ -36,6 +36,26 @@ function TokenDetail({ token, onBack }: { token: Token; onBack: () => void }) {
   const buyAmount = custom ? parseFloat(custom) || 0.5 : amount;
   const nanotons = Math.floor(buyAmount * 1e9).toString();
 
+  const handleBuyWithStars = useCallback(async () => {
+    try {
+      const tg = (window as any).Telegram?.WebApp;
+      const chatId = tg?.initDataUnsafe?.user?.id;
+      if (!chatId) { alert('Open in Telegram to pay with Stars'); return; }
+
+      const r = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/stars/invoice`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: chatId, ticker: token.ticker, curve_address: token.curve_address, ton_amount: buyAmount }),
+      });
+      const data = await r.json();
+      if (data.invoice_link) {
+        tg.openInvoice(data.invoice_link, (status: string) => {
+          if (status === 'paid') setTxDone(true);
+        });
+      }
+    } catch (e) { console.error(e); }
+  }, [token, buyAmount]);
+
   const handleBuy = useCallback(async () => {
     if (!token.curve_address) return;
     if (!wallet) {
@@ -146,6 +166,14 @@ function TokenDetail({ token, onBack }: { token: Token; onBack: () => void }) {
             {buying ? 'Sending...' : wallet ? `Buy ${buyAmount} TON of $${token.ticker}` : 'Connect Wallet to Buy'}
           </button>
         )}
+
+        {/* Pay with Stars */}
+        <button
+          onClick={handleBuyWithStars}
+          className="w-full bg-[#5B2D8E] text-white font-bold py-3 rounded-xl text-sm"
+        >
+          Pay with Stars (~{Math.ceil(buyAmount * 200)} Stars)
+        </button>
 
         {/* Fallback: open in external wallet */}
         <a
