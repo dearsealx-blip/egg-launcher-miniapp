@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import { useEffect, useState } from 'react';
 import { fetchDashboard, fetchTokens } from '@/lib/api';
 
@@ -35,12 +35,12 @@ function TokenImage({ url, ticker }: { url?: string; ticker: string }) {
 
 function TokenDetail({ token, onBack }: { token: Token; onBack: () => void }) {
   const progress = Math.min(token.progress ?? 0, 100);
-  const tonscan = `https://tonscan.org/address/${token.curve_address}`;
+  const tonscan = `https://tonviewer.com/${token.curve_address}`;
 
   return (
     <div className="p-4 space-y-4">
       <button onClick={onBack} className="flex items-center gap-1 text-[#FFD700] text-sm mb-2">
-        ← Back
+        â† Back
       </button>
       <div className="bg-[#1A1A1A] rounded-2xl p-5 border border-[#2A2A2A] space-y-4">
         <div className="flex items-center gap-4">
@@ -56,9 +56,9 @@ function TokenDetail({ token, onBack }: { token: Token; onBack: () => void }) {
         )}
         <div className="grid grid-cols-3 gap-2 text-center">
           {[
-            ['💰', `${(token.real_ton ?? 0).toFixed(2)}`, 'TON raised'],
-            ['📊', `${token.trade_count ?? 0}`, 'Trades'],
-            ['📈', `${progress.toFixed(1)}%`, 'Progress'],
+            ['ðŸ’°', `${(token.real_ton ?? 0).toFixed(2)}`, 'TON raised'],
+            ['ðŸ“Š', `${token.trade_count ?? 0}`, 'Trades'],
+            ['ðŸ“ˆ', `${progress.toFixed(1)}%`, 'Progress'],
           ].map(([icon, val, label]) => (
             <div key={label} className="bg-[#111] rounded-xl p-3">
               <div className="text-lg">{icon}</div>
@@ -70,7 +70,7 @@ function TokenDetail({ token, onBack }: { token: Token; onBack: () => void }) {
         <div>
           <div className="flex justify-between text-xs text-[#666] mb-1">
             <span>{(token.real_ton ?? 0).toFixed(2)} TON</span>
-            <span>500 TON 🎓</span>
+            <span>500 TON ðŸŽ“</span>
           </div>
           <div className="h-3 bg-[#2A2A2A] rounded-full overflow-hidden">
             <div
@@ -87,7 +87,7 @@ function TokenDetail({ token, onBack }: { token: Token; onBack: () => void }) {
               rel="noreferrer"
               className="block w-full text-center bg-[#FFD700] text-black font-bold py-3 rounded-xl text-sm"
             >
-              Buy ${ token.ticker } 🥚
+              Buy ${ token.ticker } ðŸ¥š
             </a>
             <a
               href={tonscan}
@@ -95,7 +95,7 @@ function TokenDetail({ token, onBack }: { token: Token; onBack: () => void }) {
               rel="noreferrer"
               className="block w-full text-center bg-[#1A1A1A] text-[#888] border border-[#2A2A2A] py-2.5 rounded-xl text-xs"
             >
-              View on TONScan 🔍
+              View on TONScan ðŸ”
             </a>
           </div>
         )}
@@ -120,7 +120,7 @@ export default function TrendingTab() {
 
   if (loading) return (
     <div className="flex items-center justify-center h-64">
-      <div className="text-[#FFD700] animate-pulse text-4xl">🥚</div>
+      <div className="text-[#FFD700] animate-pulse text-4xl">ðŸ¥š</div>
     </div>
   );
 
@@ -131,9 +131,9 @@ export default function TrendingTab() {
       {dash && (
         <div className="grid grid-cols-3 gap-2">
           {[
-            ['4️⃣', dash.total, 'Tokens'],
-            ['🎓', dash.graduated, 'Graduated'],
-            ['💎', `${(dash.treasury_ton ?? 0).toFixed(1)} TON`, 'Treasury'],
+            ['4ï¸âƒ£', dash.total, 'Tokens'],
+            ['ðŸŽ“', dash.graduated, 'Graduated'],
+            ['ðŸ’Ž', `${(dash.treasury_ton ?? 0).toFixed(1)} TON`, 'Treasury'],
           ].map(([icon, val, label]) => (
             <div key={String(label)} className="bg-[#1A1A1A] rounded-xl p-3 text-center">
               <div className="text-xl">{icon}</div>
@@ -146,7 +146,7 @@ export default function TrendingTab() {
 
       {tokens.length === 0 ? (
         <div className="text-center py-16">
-          <div className="text-5xl mb-3">🥚</div>
+          <div className="text-5xl mb-3">ðŸ¥š</div>
           <p className="text-[#888]">No tokens yet. Be the first to launch.</p>
         </div>
       ) : (
@@ -164,7 +164,7 @@ export default function TrendingTab() {
                     <span className="font-bold text-white">${t.ticker}</span>
                     <span className="text-[#666] text-xs truncate">{t.name}</span>
                   </div>
-                  <div className="text-[#888] text-xs">{(t.real_ton ?? 0).toFixed(2)} TON raised · {t.trade_count ?? 0} trades</div>
+                  <div className="text-[#888] text-xs">{(t.real_ton ?? 0).toFixed(2)} TON raised Â· {t.trade_count ?? 0} trades</div>
                 </div>
                 <div className="text-[#F5A623] text-xs font-bold">{(t.progress ?? 0).toFixed(1)}%</div>
               </div>
@@ -176,7 +176,7 @@ export default function TrendingTab() {
               </div>
               <div className="flex justify-between text-xs text-[#555] mt-1">
                 <span>{(t.real_ton ?? 0).toFixed(1)} TON</span>
-                <span>500 TON 🎓</span>
+                <span>500 TON ðŸŽ“</span>
               </div>
             </button>
           ))}
@@ -185,3 +185,4 @@ export default function TrendingTab() {
     </div>
   );
 }
+
