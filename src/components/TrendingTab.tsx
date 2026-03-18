@@ -1,5 +1,6 @@
-'use client';
-import { useEffect, useState } from 'react';
+﻿'use client';
+import { useEffect, useState, useCallback } from 'react';
+import { useTonConnectUI, useTonWallet } from '@tonconnect/ui-react';
 import { fetchDashboard, fetchTokens } from '@/lib/api';
 
 interface Token {
@@ -26,26 +27,48 @@ const BUY_AMOUNTS = [0.1, 0.5, 1, 5];
 function TokenDetail({ token, onBack }: { token: Token; onBack: () => void }) {
   const [amount, setAmount] = useState(0.5);
   const [custom, setCustom] = useState('');
+  const [buying, setBuying] = useState(false);
+  const [txDone, setTxDone] = useState(false);
+  const [tonConnectUI] = useTonConnectUI();
+  const wallet = useTonWallet();
+
   const progress = Math.min(token.progress ?? 0, 100);
-
   const buyAmount = custom ? parseFloat(custom) || 0.5 : amount;
-  const nanotons = Math.floor(buyAmount * 1e9);
+  const nanotons = Math.floor(buyAmount * 1e9).toString();
 
-  // TON deep link — works with Tonkeeper, MyTonWallet, etc.
-  const buyLink = token.curve_address
-    ? `ton://transfer/${token.curve_address}?amount=${nanotons}&text=buy`
-    : '#';
+  const handleBuy = useCallback(async () => {
+    if (!token.curve_address) return;
+    if (!wallet) {
+      await tonConnectUI.openModal();
+      return;
+    }
+    try {
+      setBuying(true);
+      // Build Buy message: op=1 + min_tokens_out=0 + referrer=null
+      // Encoded as hex: 00000001 00 (op=1, coins=0, no address bit)
+      const buyPayload = 'te6cckEBAQEABwAACQAAAAECbvKFSw=='; // op=1, min_out=0, referrer=null
 
-  const tonviewerLink = `https://tonviewer.com/${token.curve_address}`;
+      await tonConnectUI.sendTransaction({
+        validUntil: Math.floor(Date.now() / 1000) + 300,
+        messages: [{
+          address: token.curve_address,
+          amount: nanotons,
+          payload: buyPayload,
+        }],
+      });
+      setTxDone(true);
+    } catch (e) {
+      // user cancelled or error
+    } finally {
+      setBuying(false);
+    }
+  }, [wallet, token.curve_address, nanotons, tonConnectUI]);
 
   return (
     <div className="p-4 space-y-4">
-      <button onClick={onBack} className="flex items-center gap-1 text-[#FFD700] text-sm">
-        &larr; Back
-      </button>
+      <button onClick={onBack} className="text-[#FFD700] text-sm">&larr; Back</button>
 
       <div className="bg-[#1A1A1A] rounded-2xl p-5 border border-[#2A2A2A] space-y-4">
-        {/* Header */}
         <div className="flex items-center gap-4">
           <TokenImage url={token.image_url} ticker={token.ticker} />
           <div>
@@ -55,81 +78,88 @@ function TokenDetail({ token, onBack }: { token: Token; onBack: () => void }) {
           </div>
         </div>
 
-        {token.description && (
-          <p className="text-[#aaa] text-sm leading-relaxed">{token.description}</p>
-        )}
+        {token.description && <p className="text-[#aaa] text-sm">{token.description}</p>}
 
-        {/* Stats */}
         <div className="grid grid-cols-3 gap-2 text-center">
           <div className="bg-[#111] rounded-xl p-3">
-            <div className="text-[#FFD700] font-bold text-sm">{(token.real_ton ?? 0).toFixed(2)}</div>
+            <div className="text-[#FFD700] font-bold">{(token.real_ton ?? 0).toFixed(2)}</div>
             <div className="text-[#555] text-xs">TON raised</div>
           </div>
           <div className="bg-[#111] rounded-xl p-3">
-            <div className="text-[#FFD700] font-bold text-sm">{token.trade_count ?? 0}</div>
+            <div className="text-[#FFD700] font-bold">{token.trade_count ?? 0}</div>
             <div className="text-[#555] text-xs">Trades</div>
           </div>
           <div className="bg-[#111] rounded-xl p-3">
-            <div className="text-[#FFD700] font-bold text-sm">{progress.toFixed(1)}%</div>
+            <div className="text-[#FFD700] font-bold">{progress.toFixed(1)}%</div>
             <div className="text-[#555] text-xs">Progress</div>
           </div>
         </div>
 
-        {/* Progress bar */}
         <div>
           <div className="flex justify-between text-xs text-[#666] mb-1">
-            <span>{(token.real_ton ?? 0).toFixed(1)} TON raised</span>
-            <span>500 TON to graduate</span>
+            <span>{(token.real_ton ?? 0).toFixed(1)} TON</span>
+            <span>500 TON goal</span>
           </div>
           <div className="h-3 bg-[#2A2A2A] rounded-full overflow-hidden">
-            <div
-              className="h-full bg-gradient-to-r from-[#FFD700] to-[#F5A623] rounded-full transition-all"
-              style={{ width: `${progress}%` }}
-            />
+            <div className="h-full bg-gradient-to-r from-[#FFD700] to-[#F5A623] rounded-full transition-all" style={{ width: `${progress}%` }} />
           </div>
         </div>
 
-        {/* Buy amount picker */}
+        {/* Amount picker */}
         <div>
-          <div className="text-[#888] text-xs mb-2">Select amount</div>
+          <div className="text-[#888] text-xs mb-2">How much TON to spend?</div>
           <div className="grid grid-cols-4 gap-2 mb-2">
             {BUY_AMOUNTS.map(a => (
               <button
                 key={a}
                 onClick={() => { setAmount(a); setCustom(''); }}
                 className={`py-2 rounded-xl text-sm font-bold border transition-colors ${
-                  !custom && amount === a
-                    ? 'bg-[#FFD700] text-black border-[#FFD700]'
-                    : 'bg-[#111] text-[#888] border-[#2A2A2A]'
+                  !custom && amount === a ? 'bg-[#FFD700] text-black border-[#FFD700]' : 'bg-[#111] text-[#888] border-[#2A2A2A]'
                 }`}
               >
-                {a} TON
+                {a}
               </button>
             ))}
           </div>
           <input
             type="number"
-            placeholder="Custom amount (TON)"
+            min="0.1"
+            step="0.1"
+            placeholder="Custom TON amount"
             value={custom}
             onChange={e => setCustom(e.target.value)}
             className="w-full bg-[#111] border border-[#2A2A2A] rounded-xl px-3 py-2 text-white text-sm placeholder-[#555] focus:border-[#FFD700] outline-none"
           />
         </div>
 
-        {/* Buy button */}
+        {txDone ? (
+          <div className="bg-green-900/30 border border-green-700 rounded-xl p-4 text-center">
+            <div className="text-green-400 font-bold">Transaction sent!</div>
+            <div className="text-[#888] text-xs mt-1">Tokens will arrive shortly</div>
+          </div>
+        ) : (
+          <button
+            onClick={handleBuy}
+            disabled={buying}
+            className="w-full bg-[#FFD700] text-black font-bold py-3.5 rounded-xl text-base disabled:opacity-50"
+          >
+            {buying ? 'Sending...' : wallet ? `Buy ${buyAmount} TON of $${token.ticker}` : 'Connect Wallet to Buy'}
+          </button>
+        )}
+
+        {/* Fallback: open in external wallet */}
         <a
-          href={buyLink}
-          className="block w-full text-center bg-[#FFD700] text-black font-bold py-3.5 rounded-xl text-base"
+          href={`ton://transfer/${token.curve_address}?amount=${nanotons}&text=buy`}
+          className="block w-full text-center text-[#555] text-xs py-2"
         >
-          Buy {buyAmount} TON of ${token.ticker}
+          Or open in Tonkeeper
         </a>
 
-        {/* TONViewer link */}
         <a
-          href={tonviewerLink}
+          href={`https://tonviewer.com/${token.curve_address}`}
           target="_blank"
           rel="noreferrer"
-          className="block w-full text-center bg-[#111] text-[#666] border border-[#2A2A2A] py-2.5 rounded-xl text-xs"
+          className="block w-full text-center bg-[#111] text-[#555] border border-[#2A2A2A] py-2.5 rounded-xl text-xs"
         >
           View on TONViewer
         </a>
@@ -152,12 +182,7 @@ export default function TrendingTab() {
     });
   }, []);
 
-  if (loading) return (
-    <div className="flex items-center justify-center h-64">
-      <div className="text-[#FFD700] animate-pulse text-4xl">egg</div>
-    </div>
-  );
-
+  if (loading) return <div className="flex items-center justify-center h-64"><div className="text-[#FFD700] animate-pulse text-2xl">Loading...</div></div>;
   if (selected) return <TokenDetail token={selected} onBack={() => setSelected(null)} />;
 
   return (
@@ -186,11 +211,7 @@ export default function TrendingTab() {
       ) : (
         <div className="space-y-3">
           {tokens.map((t) => (
-            <button
-              key={t.ticker}
-              onClick={() => setSelected(t)}
-              className="w-full text-left bg-[#1A1A1A] rounded-xl p-4 border border-[#2A2A2A] active:border-[#FFD700] transition-colors"
-            >
+            <button key={t.ticker} onClick={() => setSelected(t)} className="w-full text-left bg-[#1A1A1A] rounded-xl p-4 border border-[#2A2A2A] active:border-[#FFD700] transition-colors">
               <div className="flex items-center gap-3 mb-3">
                 <TokenImage url={t.image_url} ticker={t.ticker} />
                 <div className="flex-1 min-w-0">
@@ -198,19 +219,12 @@ export default function TrendingTab() {
                     <span className="font-bold text-white">${t.ticker}</span>
                     <span className="text-[#666] text-xs truncate">{t.name}</span>
                   </div>
-                  <div className="text-[#888] text-xs">{(t.real_ton ?? 0).toFixed(2)} TON raised &middot; {t.trade_count ?? 0} trades</div>
+                  <div className="text-[#888] text-xs">{(t.real_ton ?? 0).toFixed(2)} TON &middot; {t.trade_count ?? 0} trades</div>
                 </div>
                 <div className="text-[#F5A623] text-xs font-bold">{(t.progress ?? 0).toFixed(1)}%</div>
               </div>
               <div className="h-1.5 bg-[#2A2A2A] rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-gradient-to-r from-[#FFD700] to-[#F5A623] rounded-full"
-                  style={{ width: `${Math.min(t.progress ?? 0, 100)}%` }}
-                />
-              </div>
-              <div className="flex justify-between text-xs text-[#555] mt-1">
-                <span>{(t.real_ton ?? 0).toFixed(1)} TON raised</span>
-                <span>500 TON to graduate</span>
+                <div className="h-full bg-gradient-to-r from-[#FFD700] to-[#F5A623] rounded-full" style={{ width: `${Math.min(t.progress ?? 0, 100)}%` }} />
               </div>
             </button>
           ))}
@@ -219,3 +233,4 @@ export default function TrendingTab() {
     </div>
   );
 }
+
