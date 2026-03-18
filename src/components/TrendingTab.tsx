@@ -167,14 +167,6 @@ function TokenDetail({ token, onBack }: { token: Token; onBack: () => void }) {
           </button>
         )}
 
-        {/* Pay with Stars */}
-        <button
-          onClick={handleBuyWithStars}
-          className="w-full bg-[#5B2D8E] text-white font-bold py-3 rounded-xl text-sm"
-        >
-          Pay with Stars (~{Math.ceil(buyAmount * 200)} Stars)
-        </button>
-
         {/* Fallback: open in external wallet */}
         <a
           href={`ton://transfer/${token.curve_address}?amount=${nanotons}&text=buy`}
