@@ -41,30 +41,24 @@ function TokenDetail({ token, onBack }: { token: Token; onBack: () => void }) {
   const nanotons = Math.floor(buyAmount * 1e9).toString();
 
   const handleSell = useCallback(async () => {
-    if (!token.curve_address || !wallet) {
-      await tonConnectUI.openModal();
-      return;
-    }
+    if (!token.curve_address) return;
+    if (!wallet) { await tonConnectUI.openModal(); return; }
     try {
       setBuying(true);
       const sellTokenAmt = BigInt(Math.floor((sellCustom ? parseFloat(sellCustom) : sellAmt) * 1e9));
-      // Sell message: op=2 + token_amount(coins) + min_ton_out=0(coins)
-      const sellPayload = (await import('@ton/ton')).beginCell()
+      // Sell: op=2(uint32) + token_amount(coins) + min_ton_out=0(coins)
+      const { beginCell } = await import('@ton/ton');
+      const payload = beginCell()
         .storeUint(2, 32)
         .storeCoins(sellTokenAmt)
-        .storeCoins(0n)
+        .storeCoins(BigInt(0))
         .endCell().toBoc().toString('base64');
-
-      // User must send their jetton wallet a JettonTransfer to the curve
-      // Actually: user calls Sell on curve directly with token amount
-      // The curve pulls tokens from user's jetton wallet via JettonBurn
-      // Simplest: send Sell msg to curve with token amount
       await tonConnectUI.sendTransaction({
         validUntil: Math.floor(Date.now() / 1000) + 300,
-        messages: [{ address: token.curve_address!, amount: '50000000', payload: sellPayload }],
+        messages: [{ address: token.curve_address, amount: '50000000', payload }],
       });
       setTxDone(true);
-    } catch {}
+    } catch(e) { console.error('sell error:', e); }
     finally { setBuying(false); }
   }, [wallet, token, sellAmt, sellCustom, tonConnectUI]);
 
