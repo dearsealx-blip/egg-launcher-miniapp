@@ -102,8 +102,11 @@ function TokenDetail({ token, onBack }: { token: Token; onBack: () => void }) {
             </div>
             <input type="number" min="0.1" step="0.1" placeholder="Custom TON" value={custom} onChange={e => setCustom(e.target.value)}
               className="w-full bg-[#111] border border-[#2A2A2A] rounded-xl px-3 py-2 text-white text-sm placeholder-[#555] focus:border-[#FFD700] outline-none" />
-            <a href={buyLink} className="block w-full text-center bg-[#FFD700] text-black font-bold py-3.5 rounded-xl text-base">
-              Buy {buyAmount} TON of ${token.ticker}
+            <a href={buyLink} className="block w-full text-center bg-[#FFD700] text-black font-bold py-3 rounded-xl text-base">
+              Buy {buyAmount} TON &mdash; Tonkeeper
+            </a>
+            <a href={`https://my.tt/transfer/${token.curve_address}?amount=${nanotons}&text=buy`} className="block w-full text-center bg-[#1A1A1A] text-[#FFD700] border border-[#FFD700]/40 font-bold py-3 rounded-xl text-base">
+              Buy {buyAmount} TON &mdash; MyTonWallet
             </a>
           </div>
         ) : (
@@ -119,8 +122,11 @@ function TokenDetail({ token, onBack }: { token: Token; onBack: () => void }) {
             </div>
             <input type="number" placeholder="Custom amount" value={sellCustom} onChange={e => setSellCustom(e.target.value)}
               className="w-full bg-[#111] border border-[#2A2A2A] rounded-xl px-3 py-2 text-white text-sm placeholder-[#555] focus:border-red-500 outline-none" />
-            <a href={sellLink} className="block w-full text-center bg-red-500 text-white font-bold py-3.5 rounded-xl text-base">
-              Sell {sellCustom ? parseInt(sellCustom).toLocaleString() : sellAmt.toLocaleString()} ${token.ticker}
+            <a href={sellLink} className="block w-full text-center bg-red-500 text-white font-bold py-3 rounded-xl text-base">
+              Sell via Tonkeeper
+            </a>
+            <a href={`https://my.tt/transfer/${token.curve_address}?amount=50000000&text=sell`} className="block w-full text-center bg-[#1A1A1A] text-red-400 border border-red-500/40 font-bold py-3 rounded-xl text-base">
+              Sell via MyTonWallet
             </a>
             <p className="text-[#555] text-xs text-center">Opens Tonkeeper to confirm sell</p>
           </div>
