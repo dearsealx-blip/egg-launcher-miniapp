@@ -2,11 +2,15 @@
 import { useEffect, useState } from 'react';
 import { fetchDashboard, fetchTokens } from '@/lib/api';
 
+const API = process.env.NEXT_PUBLIC_API_URL || 'https://egg-api-production.up.railway.app';
+
 interface Token {
   ticker: string; name: string; image_url?: string; description?: string;
   progress: number; real_ton: number; trade_count: number; price: number;
   curve_address?: string; jetton_address?: string; creator_username?: string;
 }
+
+interface Wallet { address: string; balance: string; }
 
 const BUY_AMOUNTS  = [0.1, 0.5, 1, 5];
 const SELL_AMOUNTS = [1000000, 5000000, 10000000, 50000000];
@@ -24,32 +28,45 @@ function TokenImage({ url, ticker }: { url?: string; ticker: string }) {
   return <img src={src} className="w-12 h-12 rounded-full object-cover flex-shrink-0" alt={ticker} onError={() => setErr(true)} />;
 }
 
-function openWalletLink(url: string) {
-  const tg = (window as any).Telegram?.WebApp;
-  if (tg?.openLink) {
-    tg.openLink(url);
-  } else {
-    window.open(url, '_blank');
-  }
-}
-
-function TokenDetail({ token, onBack }: { token: Token; onBack: () => void }) {
-  const [tab, setTab]         = useState<'buy'|'sell'>('buy');
-  const [amount, setAmount]   = useState(0.5);
-  const [custom, setCustom]   = useState('');
-  const [sellAmt, setSellAmt] = useState(1000000);
+function TokenDetail({ token, onBack, wallet }: { token: Token; onBack: () => void; wallet: Wallet | null }) {
+  const [tab, setTab]           = useState<'buy'|'sell'>('buy');
+  const [amount, setAmount]     = useState(0.5);
+  const [custom, setCustom]     = useState('');
+  const [sellAmt, setSellAmt]   = useState(1000000);
   const [sellCustom, setSellCustom] = useState('');
+  const [status, setStatus]     = useState<'idle'|'loading'|'ok'|'err'>('idle');
+  const [msg, setMsg]           = useState('');
 
-  const progress    = Math.min(token.progress ?? 0, 100);
-  const buyAmount   = custom ? parseFloat(custom) || 0.5 : amount;
-  const sellTokens  = sellCustom ? parseInt(sellCustom) || 1000000 : sellAmt;
-  const nanotons    = Math.floor(buyAmount * 1e9);
-  const nanoSell    = BigInt(sellTokens) * 1_000_000_000n;
+  const tg   = (window as any).Telegram?.WebApp;
+  const user = tg?.initDataUnsafe?.user;
 
-  // Deep links — work inside Telegram
-  const buyLink  = token.curve_address ? `https://app.tonkeeper.com/transfer/${ token.curve_address }?amount=${ nanotons }&text=buy` : '#';
-  // Sell: encode payload as hex for ton:// link
-  const sellLink = token.curve_address ? `https://app.tonkeeper.com/transfer/${ token.curve_address }?amount=50000000&text=sell` : '#';
+  const progress  = Math.min(token.progress ?? 0, 100);
+  const buyAmount = custom ? parseFloat(custom) || 0.5 : amount;
+  const sellTokens = sellCustom ? parseInt(sellCustom) || 1000000 : sellAmt;
+  const walletBal = parseFloat(wallet?.balance || '0');
+
+  async function handleBuy() {
+    if (!user?.id || !token.curve_address) return;
+    if (walletBal < buyAmount + 0.05) {
+      setMsg(`Need ${(buyAmount + 0.05).toFixed(2)} TON. Fund your wallet first.`);
+      setStatus('err');
+      setTimeout(() => setStatus('idle'), 3000);
+      return;
+    }
+    setStatus('loading');
+    setMsg('');
+    try {
+      const r = await fetch(`${API}/api/wallet/buy`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tg_id: user.id, curve_address: token.curve_address, ton_amount: buyAmount }),
+      });
+      const d = await r.json();
+      if (d.ok) { setStatus('ok'); setMsg(`Bought! Tx sent.`); }
+      else { setStatus('err'); setMsg(d.error || 'Failed'); }
+    } catch (e: any) { setStatus('err'); setMsg(e.message); }
+    setTimeout(() => setStatus('idle'), 3000);
+  }
 
   return (
     <div className="p-4 space-y-4">
@@ -92,7 +109,21 @@ function TokenDetail({ token, onBack }: { token: Token; onBack: () => void }) {
           </div>
         </div>
 
-        {/* Buy / Sell toggle */}
+        {/* Wallet balance */}
+        {wallet && (
+          <div className="bg-[#111] rounded-xl p-3 flex justify-between items-center">
+            <span className="text-[#555] text-xs">Your wallet</span>
+            <span className={`text-sm font-bold ${walletBal > 0 ? 'text-[#FFD700]' : 'text-[#555]'}`}>{walletBal.toFixed(3)} TON</span>
+          </div>
+        )}
+        {wallet && walletBal === 0 && (
+          <div className="text-[#888] text-xs text-center bg-[#111] rounded-xl p-3">
+            Fund your wallet to trade:<br/>
+            <span className="text-[#FFD700] text-xs break-all">{wallet.address}</span>
+          </div>
+        )}
+
+        {/* Buy/Sell tabs */}
         <div className="flex gap-2">
           <button onClick={() => setTab('buy')} className={`flex-1 py-2 rounded-xl font-bold text-sm border transition-colors ${tab==='buy' ? 'bg-[#FFD700] text-black border-[#FFD700]' : 'bg-[#111] text-[#888] border-[#2A2A2A]'}`}>Buy</button>
           <button onClick={() => setTab('sell')} className={`flex-1 py-2 rounded-xl font-bold text-sm border transition-colors ${tab==='sell' ? 'bg-red-500 text-white border-red-500' : 'bg-[#111] text-[#888] border-[#2A2A2A]'}`}>Sell</button>
@@ -111,16 +142,18 @@ function TokenDetail({ token, onBack }: { token: Token; onBack: () => void }) {
             </div>
             <input type="number" min="0.1" step="0.1" placeholder="Custom TON" value={custom} onChange={e => setCustom(e.target.value)}
               className="w-full bg-[#111] border border-[#2A2A2A] rounded-xl px-3 py-2 text-white text-sm placeholder-[#555] focus:border-[#FFD700] outline-none" />
-            <button onClick={() => openWalletLink(buyLink)} className="block w-full text-center bg-[#FFD700] text-black font-bold py-3 rounded-xl text-base w-full">
-              Buy {buyAmount} TON &mdash; Tonkeeper
-            </button>
-            <button onClick={() => openWalletLink(mytonBuyLink)} className="block w-full text-center bg-[#1A1A1A] text-[#FFD700] border border-[#FFD700]/40 font-bold py-3 rounded-xl text-base w-full">
-              Buy {buyAmount} TON &mdash; MyTonWallet
+
+            {status === 'ok' && <div className="text-green-400 text-sm text-center">{msg}</div>}
+            {status === 'err' && <div className="text-red-400 text-sm text-center">{msg}</div>}
+
+            <button onClick={handleBuy} disabled={status === 'loading'}
+              className={`w-full font-bold py-3.5 rounded-xl text-base transition-all ${status === 'loading' ? 'bg-[#555] text-[#999] cursor-wait' : 'bg-[#FFD700] text-black active:scale-95'}`}>
+              {status === 'loading' ? 'Buying...' : `Buy ${buyAmount} TON`}
             </button>
           </div>
         ) : (
           <div className="space-y-2">
-            <div className="text-[#888] text-xs">How many tokens?</div>
+            <div className="text-[#888] text-xs">How many tokens to sell?</div>
             <div className="grid grid-cols-4 gap-2">
               {SELL_AMOUNTS.map(a => (
                 <button key={a} onClick={() => { setSellAmt(a); setSellCustom(''); }}
@@ -131,13 +164,7 @@ function TokenDetail({ token, onBack }: { token: Token; onBack: () => void }) {
             </div>
             <input type="number" placeholder="Custom amount" value={sellCustom} onChange={e => setSellCustom(e.target.value)}
               className="w-full bg-[#111] border border-[#2A2A2A] rounded-xl px-3 py-2 text-white text-sm placeholder-[#555] focus:border-red-500 outline-none" />
-            <button onClick={() => openWalletLink(sellLink)} className="block w-full text-center bg-red-500 text-white font-bold py-3 rounded-xl text-base w-full">
-              Sell via Tonkeeper
-            </button>
-            <button onClick={() => openWalletLink(mytonSellLink)} className="block w-full text-center bg-[#1A1A1A] text-red-400 border border-red-500/40 font-bold py-3 rounded-xl text-base w-full">
-              Sell via MyTonWallet
-            </button>
-            <p className="text-[#555] text-xs text-center">Opens Tonkeeper to confirm sell</p>
+            <p className="text-[#555] text-xs text-center">Sell via your Egg wallet — coming soon</p>
           </div>
         )}
 
@@ -151,21 +178,32 @@ function TokenDetail({ token, onBack }: { token: Token; onBack: () => void }) {
 }
 
 export default function TrendingTab() {
-  const [tokens, setTokens]     = useState<Token[]>([]);
-  const [dash, setDash]         = useState<any>(null);
-  const [loading, setLoading]   = useState(true);
+  const [tokens, setTokens]   = useState<Token[]>([]);
+  const [dash, setDash]       = useState<any>(null);
+  const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Token | null>(null);
+  const [wallet, setWallet]   = useState<Wallet | null>(null);
 
   useEffect(() => {
+    const tg   = (window as any).Telegram?.WebApp;
+    const user = tg?.initDataUnsafe?.user;
+
     Promise.all([fetchTokens(), fetchDashboard()]).then(([t, d]) => {
       setTokens(t || []);
       setDash(d);
       setLoading(false);
     });
+
+    if (user?.id) {
+      fetch(`${API}/api/wallet/${user.id}?username=${user.username || ''}`)
+        .then(r => r.json())
+        .then(d => { if (d.address) setWallet({ address: d.address, balance: d.balance || '0' }); })
+        .catch(() => {});
+    }
   }, []);
 
   if (loading) return <div className="flex items-center justify-center h-64"><div className="text-[#FFD700] animate-pulse text-2xl">Loading...</div></div>;
-  if (selected) return <TokenDetail token={selected} onBack={() => setSelected(null)} />;
+  if (selected) return <TokenDetail token={selected} onBack={() => setSelected(null)} wallet={wallet} />;
 
   return (
     <div className="p-4 space-y-4">
@@ -173,43 +211,42 @@ export default function TrendingTab() {
         <div className="grid grid-cols-3 gap-2">
           <div className="bg-[#1A1A1A] rounded-xl p-3 text-center">
             <div className="text-[#FFD700] font-bold text-lg">{dash.total ?? 0}</div>
-            <div className="text-[#666] text-xs">Tokens</div>
+            <div className="text-[#555] text-xs">Tokens</div>
           </div>
           <div className="bg-[#1A1A1A] rounded-xl p-3 text-center">
             <div className="text-[#FFD700] font-bold text-lg">{dash.graduated ?? 0}</div>
-            <div className="text-[#666] text-xs">Graduated</div>
+            <div className="text-[#555] text-xs">Graduated</div>
           </div>
           <div className="bg-[#1A1A1A] rounded-xl p-3 text-center">
-            <div className="text-[#FFD700] font-bold text-lg">{(dash.treasury_ton ?? 0).toFixed(1)}</div>
-            <div className="text-[#666] text-xs">Treasury TON</div>
+            <div className="text-[#FFD700] font-bold text-lg">{dash.treasury_ton?.toFixed(1) ?? '0'}</div>
+            <div className="text-[#555] text-xs">TON treasury</div>
           </div>
         </div>
       )}
 
-      {tokens.length === 0 ? (
-        <div className="text-center py-16"><p className="text-[#888]">No tokens yet. Be the first to launch.</p></div>
-      ) : (
-        <div className="space-y-3">
-          {tokens.map((t) => (
-            <button key={t.ticker} onClick={() => setSelected(t)} className="w-full text-left bg-[#1A1A1A] rounded-xl p-4 border border-[#2A2A2A] active:border-[#FFD700] transition-colors">
-              <div className="flex items-center gap-3 mb-3">
-                <TokenImage url={t.image_url} ticker={t.ticker} />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="font-bold text-white">${t.ticker}</span>
-                    <span className="text-[#666] text-xs truncate">{t.name}</span>
-                  </div>
-                  <div className="text-[#888] text-xs">{(t.real_ton ?? 0).toFixed(2)} TON &middot; {t.trade_count ?? 0} trades</div>
-                </div>
-                <div className="text-[#F5A623] text-xs font-bold">{(t.progress ?? 0).toFixed(1)}%</div>
+      <div className="space-y-3">
+        {tokens.length === 0 && <div className="text-[#555] text-center py-8">No tokens yet</div>}
+        {tokens.map(token => (
+          <button key={token.ticker} onClick={() => setSelected(token)}
+            className="w-full bg-[#1A1A1A] rounded-2xl p-4 border border-[#2A2A2A] flex items-center gap-3 text-left hover:border-[#FFD700]/30 transition-colors">
+            <TokenImage url={token.image_url} ticker={token.ticker} />
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between">
+                <span className="text-white font-bold">${token.ticker}</span>
+                <span className="text-[#FFD700] text-sm font-bold">{(token.real_ton ?? 0).toFixed(2)} TON</span>
               </div>
-              <div className="h-1.5 bg-[#2A2A2A] rounded-full overflow-hidden">
-                <div className="h-full bg-gradient-to-r from-[#FFD700] to-[#F5A623] rounded-full" style={{ width: `${Math.min(t.progress ?? 0, 100)}%` }} />
+              <div className="text-[#666] text-xs truncate">{token.name}</div>
+              <div className="mt-1.5 h-1.5 bg-[#2A2A2A] rounded-full overflow-hidden">
+                <div className="h-full bg-gradient-to-r from-[#FFD700] to-[#F5A623] rounded-full" style={{ width: `${Math.min(token.progress ?? 0, 100)}%` }} />
               </div>
-            </button>
-          ))}
-        </div>
-      )}
+              <div className="flex justify-between text-[#444] text-xs mt-0.5">
+                <span>{token.trade_count ?? 0} trades</span>
+                <span>{(token.progress ?? 0).toFixed(1)}%</span>
+              </div>
+            </div>
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
