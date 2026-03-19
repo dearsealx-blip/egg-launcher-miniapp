@@ -85,6 +85,15 @@ function TokenDetail({ token, onBack, wallet, onRefreshWallet }: { token: Token;
 
   async function handleSell() {
     if (!user?.id || !token.curve_address) return;
+    // Block sell if not enough tokens
+    if (tokenBalNum <= 0) {
+      setStatus('err'); setMsg('No tokens to sell');
+      setTimeout(() => setStatus('idle'), 3000); return;
+    }
+    if (sellTokens > tokenBalNum) {
+      setStatus('err'); setMsg(`Only have ${(tokenBalNum/1e9).toFixed(1)}M tokens`);
+      setTimeout(() => setStatus('idle'), 3000); return;
+    }
     setStatus('loading');
     setMsg('');
     try {
@@ -94,7 +103,11 @@ function TokenDetail({ token, onBack, wallet, onRefreshWallet }: { token: Token;
         body: JSON.stringify({ tg_id: user.id, curve_address: token.curve_address, token_amount: sellTokens }),
       });
       const d = await r.json();
-      if (d.ok) { setStatus('ok'); setMsg('Sold! TON sent to your wallet.'); setTimeout(refreshBalances, 10000); }
+      if (d.ok) {
+        setStatus('ok'); setMsg('Sold! TON sent to your wallet.');
+        setTokenBal(String(Math.max(0, tokenBalNum - sellTokens))); // optimistic update
+        setTimeout(refreshBalances, 10000);
+      }
       else { setStatus('err'); setMsg(d.error || 'Failed'); }
     } catch (e: any) { setStatus('err'); setMsg(e.message); }
     setTimeout(() => setStatus('idle'), 3000);
