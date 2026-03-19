@@ -114,7 +114,7 @@ function TokenDetail({ token, onBack }: { token: Token; onBack: () => void }) {
             <button onClick={() => openWalletLink(buyLink)} className="block w-full text-center bg-[#FFD700] text-black font-bold py-3 rounded-xl text-base w-full">
               Buy {buyAmount} TON &mdash; Tonkeeper
             </button>
-            <button onClick={() => openWalletLink(`https://my.tt/transfer/${token.curve_address}?amount=${nanotons}&text=buy`)} className="block w-full text-center bg-[#1A1A1A] text-[#FFD700] border border-[#FFD700]/40 font-bold py-3 rounded-xl text-base w-full">
+            <button onClick={() => openWalletLink(mytonBuyLink)} className="block w-full text-center bg-[#1A1A1A] text-[#FFD700] border border-[#FFD700]/40 font-bold py-3 rounded-xl text-base w-full">
               Buy {buyAmount} TON &mdash; MyTonWallet
             </button>
           </div>
@@ -134,7 +134,7 @@ function TokenDetail({ token, onBack }: { token: Token; onBack: () => void }) {
             <button onClick={() => openWalletLink(sellLink)} className="block w-full text-center bg-red-500 text-white font-bold py-3 rounded-xl text-base w-full">
               Sell via Tonkeeper
             </button>
-            <button onClick={() => openWalletLink(`https://my.tt/transfer/${token.curve_address}?amount=50000000&text=sell`)} className="block w-full text-center bg-[#1A1A1A] text-red-400 border border-red-500/40 font-bold py-3 rounded-xl text-base w-full">
+            <button onClick={() => openWalletLink(mytonSellLink)} className="block w-full text-center bg-[#1A1A1A] text-red-400 border border-red-500/40 font-bold py-3 rounded-xl text-base w-full">
               Sell via MyTonWallet
             </button>
             <p className="text-[#555] text-xs text-center">Opens Tonkeeper to confirm sell</p>
