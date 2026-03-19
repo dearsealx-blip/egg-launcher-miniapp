@@ -116,7 +116,7 @@ export default function LaunchTab() {
 
   if (step === 'done') return (
     <div className="p-4 flex flex-col items-center justify-center min-h-[60vh] text-center space-y-4">
-      <div className="text-7xl">🐣</div>
+      <div className="text-7xl">{deployed ? "??" : "?"}</div>
       <h2 className="text-[#FFD700] font-bold text-2xl">
         {deployed ? `$${payInfo?.ticker} is live!` : 'Hatching...'}
       </h2>

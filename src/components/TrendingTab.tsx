@@ -68,6 +68,23 @@ function TokenDetail({ token, onBack, wallet }: { token: Token; onBack: () => vo
     setTimeout(() => setStatus('idle'), 3000);
   }
 
+  async function handleSell() {
+    if (!user?.id || !token.curve_address) return;
+    setStatus('loading');
+    setMsg('');
+    try {
+      const r = await fetch(`${API}/api/wallet/sell`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tg_id: user.id, curve_address: token.curve_address, token_amount: sellTokens }),
+      });
+      const d = await r.json();
+      if (d.ok) { setStatus('ok'); setMsg('Sold! TON sent to your wallet.'); }
+      else { setStatus('err'); setMsg(d.error || 'Failed'); }
+    } catch (e: any) { setStatus('err'); setMsg(e.message); }
+    setTimeout(() => setStatus('idle'), 3000);
+  }
+
   return (
     <div className="p-4 space-y-4">
       <button onClick={onBack} className="text-[#FFD700] text-sm">&larr; Back</button>
@@ -164,7 +181,15 @@ function TokenDetail({ token, onBack, wallet }: { token: Token; onBack: () => vo
             </div>
             <input type="number" placeholder="Custom amount" value={sellCustom} onChange={e => setSellCustom(e.target.value)}
               className="w-full bg-[#111] border border-[#2A2A2A] rounded-xl px-3 py-2 text-white text-sm placeholder-[#555] focus:border-red-500 outline-none" />
-            <p className="text-[#555] text-xs text-center">Sell via your Egg wallet — coming soon</p>
+
+            {status === 'ok' && tab === 'sell' && <div className="text-green-400 text-sm text-center">{msg}</div>}
+            {status === 'err' && tab === 'sell' && <div className="text-red-400 text-sm text-center">{msg}</div>}
+
+            <button onClick={handleSell} disabled={status === 'loading'}
+              className={`w-full font-bold py-3.5 rounded-xl text-base transition-all ${status === 'loading' ? 'bg-[#555] text-[#999] cursor-wait' : 'bg-red-500 text-white active:scale-95'}`}>
+              {status === 'loading' ? 'Selling...' : `Sell ${(sellTokens/1_000_000).toFixed(0)}M ${token.ticker}`}
+            </button>
+            <p className="text-[#555] text-xs text-center">Tokens sold from your Egg wallet</p>
           </div>
         )}
 
