@@ -34,16 +34,24 @@ function TokenDetail({ token, onBack, wallet }: { token: Token; onBack: () => vo
   const [custom, setCustom]     = useState('');
   const [sellAmt, setSellAmt]   = useState(1000000);
   const [sellCustom, setSellCustom] = useState('');
-  const [status, setStatus]     = useState<'idle'|'loading'|'ok'|'err'>('idle');
-  const [msg, setMsg]           = useState('');
+  const [status, setStatus]       = useState<'idle'|'loading'|'ok'|'err'>('idle');
+  const [msg, setMsg]             = useState('');
+  const [tokenBal, setTokenBal]   = useState<string>('0');
 
   const tg   = (window as any).Telegram?.WebApp;
   const user = tg?.initDataUnsafe?.user;
 
-  const progress  = Math.min(token.progress ?? 0, 100);
-  const buyAmount = custom ? parseFloat(custom) || 0.5 : amount;
+  const progress   = Math.min(token.progress ?? 0, 100);
+  const buyAmount  = custom ? parseFloat(custom) || 0.5 : amount;
   const sellTokens = sellCustom ? parseInt(sellCustom) || 1000000 : sellAmt;
-  const walletBal = parseFloat(wallet?.balance || '0');
+  const walletBal  = parseFloat(wallet?.balance || '0');
+  const tokenBalNum = parseInt(tokenBal) || 0;
+
+  useEffect(() => {
+    if (!user?.id || !token.jetton_address) return;
+    fetch(`${API}/api/wallet/${user.id}/jetton?master=${token.jetton_address}`)
+      .then(r => r.json()).then(d => setTokenBal(d.balance || '0')).catch(() => {});
+  }, [user?.id, token.jetton_address]);
 
   async function handleBuy() {
     if (!user?.id || !token.curve_address) return;
@@ -126,17 +134,22 @@ function TokenDetail({ token, onBack, wallet }: { token: Token; onBack: () => vo
           </div>
         </div>
 
-        {/* Wallet balance */}
+        {/* Balances */}
         {wallet && (
-          <div className="bg-[#111] rounded-xl p-3 flex justify-between items-center">
-            <span className="text-[#555] text-xs">Your wallet</span>
-            <span className={`text-sm font-bold ${walletBal > 0 ? 'text-[#FFD700]' : 'text-[#555]'}`}>{walletBal.toFixed(3)} TON</span>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="bg-[#111] rounded-xl p-3 text-center">
+              <div className={`text-sm font-bold ${walletBal > 0 ? 'text-[#FFD700]' : 'text-[#555]'}`}>{walletBal.toFixed(3)}</div>
+              <div className="text-[#444] text-xs">TON balance</div>
+            </div>
+            <div className="bg-[#111] rounded-xl p-3 text-center">
+              <div className={`text-sm font-bold ${tokenBalNum > 0 ? 'text-[#F5A623]' : 'text-[#555]'}`}>{tokenBalNum > 0 ? (tokenBalNum/1e6).toFixed(1)+'M' : '0'}</div>
+              <div className="text-[#444] text-xs">${token.ticker} balance</div>
+            </div>
           </div>
         )}
         {wallet && walletBal === 0 && (
           <div className="text-[#888] text-xs text-center bg-[#111] rounded-xl p-3">
-            Fund your wallet to trade:<br/>
-            <span className="text-[#FFD700] text-xs break-all">{wallet.address}</span>
+            Fund your wallet: <span className="text-[#FFD700] break-all">{wallet.address}</span>
           </div>
         )}
 
@@ -170,7 +183,15 @@ function TokenDetail({ token, onBack, wallet }: { token: Token; onBack: () => vo
           </div>
         ) : (
           <div className="space-y-2">
-            <div className="text-[#888] text-xs">How many tokens to sell?</div>
+            <div className="flex justify-between items-center">
+              <span className="text-[#888] text-xs">How many tokens to sell?</span>
+              {tokenBalNum > 0 && (
+                <button onClick={() => setSellCustom(tokenBalNum.toString())}
+                  className="text-xs text-[#FFD700] font-bold border border-[#FFD700]/30 rounded-lg px-2 py-0.5">
+                  MAX ({(tokenBalNum/1e6).toFixed(1)}M)
+                </button>
+              )}
+            </div>
             <div className="grid grid-cols-4 gap-2">
               {SELL_AMOUNTS.map(a => (
                 <button key={a} onClick={() => { setSellAmt(a); setSellCustom(''); }}
