@@ -28,7 +28,7 @@ function TokenImage({ url, ticker }: { url?: string; ticker: string }) {
   return <img src={src} className="w-12 h-12 rounded-full object-cover flex-shrink-0" alt={ticker} onError={() => setErr(true)} />;
 }
 
-function TokenDetail({ token, onBack, wallet }: { token: Token; onBack: () => void; wallet: Wallet | null }) {
+function TokenDetail({ token, onBack, wallet, onRefreshWallet }: { token: Token; onBack: () => void; wallet: Wallet | null; onRefreshWallet: () => void }) {
   const [tab, setTab]           = useState<'buy'|'sell'>('buy');
   const [amount, setAmount]     = useState(0.5);
   const [custom, setCustom]     = useState('');
@@ -53,6 +53,13 @@ function TokenDetail({ token, onBack, wallet }: { token: Token; onBack: () => vo
       .then(r => r.json()).then(d => setTokenBal(d.balance || '0')).catch(() => {});
   }, [user?.id, token.jetton_address]);
 
+  async function refreshBalances() {
+    if (!user?.id) return;
+    fetch(`${API}/api/wallet/${user.id}/jetton?master=${token.jetton_address}`)
+      .then(r => r.json()).then(d => setTokenBal(d.balance || '0')).catch(() => {});
+    onRefreshWallet();
+  }
+
   async function handleBuy() {
     if (!user?.id || !token.curve_address) return;
     if (walletBal < buyAmount + 0.05) {
@@ -70,7 +77,7 @@ function TokenDetail({ token, onBack, wallet }: { token: Token; onBack: () => vo
         body: JSON.stringify({ tg_id: user.id, curve_address: token.curve_address, ton_amount: buyAmount }),
       });
       const d = await r.json();
-      if (d.ok) { setStatus('ok'); setMsg(`Bought! Tx sent.`); }
+      if (d.ok) { setStatus('ok'); setMsg(`Bought! Tx sent.`); setTimeout(refreshBalances, 12000); }
       else { setStatus('err'); setMsg(d.error || 'Failed'); }
     } catch (e: any) { setStatus('err'); setMsg(e.message); }
     setTimeout(() => setStatus('idle'), 3000);
@@ -87,7 +94,7 @@ function TokenDetail({ token, onBack, wallet }: { token: Token; onBack: () => vo
         body: JSON.stringify({ tg_id: user.id, curve_address: token.curve_address, token_amount: sellTokens }),
       });
       const d = await r.json();
-      if (d.ok) { setStatus('ok'); setMsg('Sold! TON sent to your wallet.'); }
+      if (d.ok) { setStatus('ok'); setMsg('Sold! TON sent to your wallet.'); setTimeout(refreshBalances, 10000); }
       else { setStatus('err'); setMsg(d.error || 'Failed'); }
     } catch (e: any) { setStatus('err'); setMsg(e.message); }
     setTimeout(() => setStatus('idle'), 3000);
@@ -249,7 +256,17 @@ export default function TrendingTab() {
   }, []);
 
   if (loading) return <div className="flex items-center justify-center h-64"><div className="text-[#FFD700] animate-pulse text-2xl">Loading...</div></div>;
-  if (selected) return <TokenDetail token={selected} onBack={() => setSelected(null)} wallet={wallet} />;
+  const refreshWallet = () => {
+    const tg = (window as any).Telegram?.WebApp;
+    const user = tg?.initDataUnsafe?.user;
+    if (!user?.id) return;
+    fetch(`${API}/api/wallet/${user.id}`)
+      .then(r => r.json())
+      .then(d => { if (d.address) setWallet({ address: d.address, balance: d.balance || '0' }); })
+      .catch(() => {});
+  };
+
+  if (selected) return <TokenDetail token={selected} onBack={() => setSelected(null)} wallet={wallet} onRefreshWallet={refreshWallet} />;
 
   return (
     <div className="p-4 space-y-4">
