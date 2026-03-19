@@ -100,7 +100,7 @@ function TokenDetail({ token, onBack, wallet, onRefreshWallet }: { token: Token;
       const r = await fetch(`${API}/api/wallet/sell`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tg_id: user.id, curve_address: token.curve_address, jetton_address: token.jetton_address, token_amount: sellTokens }),
+        body: JSON.stringify({ tg_id: user.id, curve_address: token.curve_address, token_amount: sellTokens }),
       });
       const d = await r.json();
       if (d.ok) {
